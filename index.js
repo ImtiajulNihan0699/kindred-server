@@ -1,8 +1,11 @@
 
 import express from "express";
 import { MongoClient } from "mongodb";
+import { ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import cors from "cors";
+
+
 
 dotenv.config();
 
@@ -60,6 +63,14 @@ app.get("/events/user/:userId", async (req, res) => {
     });
   }
 });
+app.get("/events/:id", async (req, res) => {
+  const {id} = req.params;
+ const result = await eventsCollection.findOne({ _id: new ObjectId(id) });
+  res.send(result);
+
+});
+
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
