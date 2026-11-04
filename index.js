@@ -43,6 +43,24 @@ app.get("/events", async (req, res) => {
 
   res.send(events);
 });
+
+app.get("/events/user/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    const userEvents = await eventsCollection
+      .find({ createdBy: userId })
+      .toArray();
+
+    res.send(userEvents);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      message: "Failed to fetch user's events",
+    });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
