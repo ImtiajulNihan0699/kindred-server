@@ -26,11 +26,18 @@ export async function connectToMongoDB() {
 const connectedClient = await connectToMongoDB();
 const db = connectedClient.db("kindredDB");
 const usersCollection = db.collection("users");
+const eventsCollection = db.collection("events");
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
+app.post("/events", async (req, res) => {
+  const event = req.body;
+  const result = await eventsCollection.insertOne(event);
+  console.log(result);
+  res.send(result);
+});
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
