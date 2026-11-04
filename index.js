@@ -38,7 +38,11 @@ app.post("/events", async (req, res) => {
   console.log(result);
   res.send(result);
 });
+app.get("/events", async (req, res) => {
+  const events = await eventsCollection.find().toArray();
 
+  res.send(events);
+});
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
