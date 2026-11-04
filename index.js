@@ -82,6 +82,12 @@ const result = await eventsCollection.updateOne(
 res.send(result);
 });
 
+app.delete("/events/:id", async (req, res) => {
+  const { id } = req.params;
+  const result = await eventsCollection.deleteOne({ _id: new ObjectId(id) });
+  res.send(result);
+});  
+
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });
