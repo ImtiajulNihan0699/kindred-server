@@ -30,6 +30,11 @@ const connectedClient = await connectToMongoDB();
 const db = connectedClient.db("kindredDB");
 const usersCollection = db.collection("users");
 const eventsCollection = db.collection("events");
+const joinedEventsCollection = db.collection("joinedEvents");
+await joinedEventsCollection.createIndex(
+  { userId: 1, eventId: 1 },
+  { unique: true }
+);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
@@ -87,6 +92,174 @@ app.delete("/events/:id", async (req, res) => {
   const result = await eventsCollection.deleteOne({ _id: new ObjectId(id) });
   res.send(result);
 });  
+
+app.post("/joined-events", async (req, res) => {
+  try {
+    const { userId, eventId } = req.body;
+
+    if (!userId || !ObjectId.isValid(eventId)) {
+      return res.status(400).send({
+        message: "Invalid user or event information",
+      });
+    }
+
+    const event = await eventsCollection.findOne({
+      _id: new ObjectId(eventId),
+    });
+
+    if (!event) {
+      return res.status(404).send({
+        message: "Event not found",
+      });
+    }
+
+    const joinedEvent = {
+      userId,
+      eventId,
+      joinedAt: new Date(),
+    };
+
+    await joinedEventsCollection.insertOne(joinedEvent);
+
+    res.status(201).send({
+      message: "Successfully joined the event",
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).send({
+        message: "You have already joined this event",
+      });
+    }
+
+    console.error("Join event error:", error);
+
+    res.status(500).send({
+      message: "Failed to join event",
+    });
+  }
+});
+app.get("/joined-events/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const joinedEvents = await joinedEventsCollection
+      .aggregate([
+        {
+          $match: { userId },
+        },
+        {
+          $addFields: {
+            eventObjectId: {
+              $toObjectId: "$eventId",
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "events",
+            localField: "eventObjectId",
+            foreignField: "_id",
+            as: "event",
+          },
+        },
+        {
+          $unwind: "$event",
+        },
+        {
+          $replaceRoot: {
+            newRoot: {
+              $mergeObjects: [
+                "$event",
+                {
+                  joinedAt: "$joinedAt",
+                },
+              ],
+            },
+          },
+        },
+        {
+          $sort: {
+            joinedAt: -1,
+          },
+        },
+      ])
+      .toArray();
+
+    res.send(joinedEvents);
+  } catch (error) {
+    console.error("Fetch joined events error:", error);
+
+    res.status(500).send({
+      message: "Failed to fetch joined events",
+    });
+  }
+});
+
+app.get(
+  "/joined-events/user/:userId/check/:eventId",
+  async (req, res) => {
+    try {
+      const { userId, eventId } = req.params;
+
+      if (!ObjectId.isValid(eventId)) {
+        return res.status(400).send({
+          message: "Invalid event ID",
+        });
+      }
+
+      const joinedEvent = await joinedEventsCollection.findOne({
+        userId,
+        eventId,
+      });
+
+      res.send({
+        isJoined: Boolean(joinedEvent),
+      });
+    } catch (error) {
+      console.error("Check joined event error:", error);
+
+      res.status(500).send({
+        message: "Failed to check joined event",
+      });
+    }
+  },
+);
+
+app.delete(
+  "/joined-events/:eventId/user/:userId",
+  async (req, res) => {
+    try {
+      const { eventId, userId } = req.params;
+
+      if (!ObjectId.isValid(eventId)) {
+        return res.status(400).send({
+          message: "Invalid event ID",
+        });
+      }
+
+      const result = await joinedEventsCollection.deleteOne({
+        userId,
+        eventId,
+      });
+
+      if (result.deletedCount === 0) {
+        return res.status(404).send({
+          message: "Joined event not found",
+        });
+      }
+
+      res.send({
+        message: "Event removed from joined events",
+      });
+    } catch (error) {
+      console.error("Remove joined event error:", error);
+
+      res.status(500).send({
+        message: "Failed to remove joined event",
+      });
+    }
+  },
+);
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
