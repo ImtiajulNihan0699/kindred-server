@@ -70,7 +70,17 @@ app.get("/events/:id", async (req, res) => {
 
 });
 
+app.patch("/events/:id", async (req, res) => {
+const { id } = req.params;
+const updatedEvent = req.body;
 
+const result = await eventsCollection.updateOne(
+  { _id: new ObjectId(id) },
+  { $set: updatedEvent }
+);
+
+res.send(result);
+});
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
